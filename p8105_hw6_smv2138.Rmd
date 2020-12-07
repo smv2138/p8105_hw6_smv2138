@@ -344,7 +344,7 @@ bootstrap_results =
 
 ```
 
-Calculate log(b0*b1) and merging it into the bootstrap results df
+Calculate log(β^0∗β^1) and merging it into the bootstrap results df
 ```{r}
 log_beta = 
   bootstrap_results %>% 
@@ -363,4 +363,51 @@ final_df = left_join(bootstrap_results, log_beta, by = "strap_number")
   
 ```
 
-#### Part
+#### Part 3 - Plot the distribution of your estimates
+
+```{r}
+## Density plot of betas for tmin across all 5000 bootstrap samples
+final_df %>% 
+  filter(term == "tmin") %>% 
+  ggplot(aes(x = estimate)) +
+  geom_density() +
+  labs(
+    title = "Density plot of betas for tmin across all 5000 bootstrap samples"
+  )
+
+## Density plot of r squared values across all 5000 bootstrap samples
+final_df %>% 
+  filter(term == "tmin") %>% 
+  ggplot(aes(x = r.squared)) +
+  geom_density() +
+  labs(
+    title = "Density plot of r squared values across all 5000 bootstrap samples"
+  )
+
+## Density plot of log(β^0∗β^1) values across all 5000 bootstrap samples
+final_df %>% 
+  filter(term == "tmin") %>% 
+  ggplot(aes(x = log_beta)) +
+  geom_density() +
+  labs(
+    title = "Density plot of log(β^0∗β^1) values across all 5000 bootstrap samples"
+  )
+```
+The three plots above show the distribution of b1 (tmin), r-squared and log(β^0∗β^1) values across all 5000 bootstrap resamples. All three graphs appear to have a normal distribution of values across all samples. 
+
+#### Part 4 - Identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r^2 and log(β^0∗β^1)
+
+```{r}
+final_df %>% 
+  group_by(term) %>% 
+  filter(term == "tmin") %>%  
+  summarize(
+    rsq_ci_lower = quantile(r.squared, 0.025),
+    rsq_ci_upper = quantile(r.squared, 0.975),
+    logb_ci_lower = quantile(log_beta, 0.025),
+    logb_ci_upper = quantile(log_beta, 0.975)
+  ) %>% 
+  knitr::kable()
+```
+The 95% CI based on 5000 bootstrap resampling for the r squared values is 0.8935 to 0.9270. The 95% CI based on 5000 bootstrap resampling for the log(β^0∗β^1) value is 1.9653 to 2.0597.
+
