@@ -129,25 +129,9 @@ baby_df =
 Checking for NAs
 
 ```{r}
-
-baby_df %>% 
-  summarize(
-  na = sum(is.na(babysex)))
-
-variables  = names(baby_df)
-
-check_na = function(df, variable) {
- 
-  df %>% 
-    summarize(
-      na = sum(is.na(variable))
-    )
-}
-
-number_na = 
-  variables %>% 
-  map(variables, check_na(df = baby_df, variable = variables))
-number_na
+count_na = 
+  baby_df %>% 
+    map_df(~sum(is.na(.)))
 ```
 Based on the function above, it appears that there are no NAs in this the `baby_df` for any of the variables
 
@@ -325,3 +309,58 @@ Based on these violin plots and the calculated average root mean squared error, 
 use bootstrap to get distribution of parameters you're interested in
 fit linear model of max emp against min temp
 r sq value and another random param ()
+#### Part 1 - Load 2017 Central Park Weather Data
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+#### Part 2 - Fit linear regression and generate 5000 bootstrap results
+
+We’ll focus on a simple linear regression with tmax as the response and tmin as the predictor
+Select r-squared value
+```{r}
+bootstrap_results = 
+  weather_df %>% 
+  modelr::bootstrap(n = 5000, id = "strap_number") %>% 
+  mutate(
+    models = map(.x = strap, ~ lm(tmax ~ tmin, data = .x)),
+    r_squared = map(models, broom::glance),
+    results = map(models, broom::tidy)
+  ) %>% 
+  unnest(results) %>% 
+  select(strap_number, term, estimate, r_squared) %>% 
+  unnest(r_squared) %>% 
+  select(strap_number, term, estimate, r.squared)
+
+```
+
+Calculate log(b0*b1) and merging it into the bootstrap results df
+```{r}
+log_beta = 
+  bootstrap_results %>% 
+  select(strap_number:estimate) %>% 
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    log_beta = log(intercept*tmin)
+  ) %>% 
+  select(strap_number, log_beta)
+
+final_df = left_join(bootstrap_results, log_beta, by = "strap_number")
+  
+```
+
+#### Part
