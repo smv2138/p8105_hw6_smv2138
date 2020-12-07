@@ -111,22 +111,214 @@ build a model (open ended)
 start with checking for cross validation
 Porbably want to do some work with factor variables 
 Find some residuals
+
+#### Part 1 - Loading data and cleaning data
+Load and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
 ```{r}
 baby_df = 
-  read_csv("./hom_data/birthweight.csv")
+  read_csv("./hom_data/birthweight.csv") %>% 
+   mutate(
+    babysex = as.factor(babysex), 
+    frace = as.factor(frace), 
+    malform = as.factor(malform), 
+    mrace = as.factor(mrace)
+  ) 
+  
 ```
 
-```{r}
-model_fit = lm(bwt ~ gaweeks, data = baby_df)
-```
+Checking for NAs
 
 ```{r}
+
 baby_df %>% 
-  modelr::add_residuals(model_fit) %>% 
-  ggplot(aes(x = gaweeks ,y = resid)) +
+  summarize(
+  na = sum(is.na(babysex)))
+
+variables  = names(baby_df)
+
+check_na = function(df, variable) {
+ 
+  df %>% 
+    summarize(
+      na = sum(is.na(variable))
+    )
+}
+
+number_na = 
+  variables %>% 
+  map(variables, check_na(df = baby_df, variable = variables))
+number_na
+```
+Based on the function above, it appears that there are no NAs in this the `baby_df` for any of the variables
+
+#### Part 2 - Building a model
+
+Variables I'm interested in looking at
+
+  * `pnumlbw` - previous number of low birth weight babies
+  * `ppbmi`- mother’s pre-pregnancy BMI
+  * `ppwt` - mother’s pre-pregnancy weight (pounds)
+  * `wtgain` - mother’s weight gain during pregnancy (pounds)
+  
+Will check the linear association between the above variables and birthweight to see if we can fit a linear regression.
+
+```{r}
+pnumlbw_linear = 
+baby_df %>% 
+  ggplot(aes(x = pnumlbw, y = bwt)) +
+  geom_point()
+
+ppbmi_linear = 
+baby_df %>% 
+  ggplot(aes(x = ppbmi, y = bwt)) +
+  geom_point()
+
+ppwt_linear = 
+baby_df %>% 
+  ggplot(aes(x = ppwt, y = bwt)) +
+  geom_point()
+
+wtgain_linear = 
+baby_df %>% 
+  ggplot(aes(x = wtgain, y = bwt)) +
   geom_point()
 ```
+Based on the above graphs, we can see that no mother in this dataset had a previous number of low birth weight babies. Therefore, we will drop this variable from furher analysis. They other 3 variables appear to have a linear relationship with the outcome of birthweight, therefore, we will move forward with analyzing these. 
 
+Fit the model and show a plot of model residuals against fitted values 
+
+```{r}
+## Pre-pregnancy BMI model
+lm(bwt ~ ppbmi, data = baby_df) %>% 
+        broom::tidy() %>% 
+  knitr::kable()
+
+## Pre-pregnancy weight model
+lm(bwt ~ ppwt, data = baby_df) %>% 
+        broom::tidy() %>% 
+  knitr::kable()
+
+## Weight gained during pregnancy model
+lm(bwt ~ wtgain, data = baby_df) %>% 
+        broom::tidy() %>% 
+  knitr::kable()
+```
+After fitting all three of these models, we can see that they all have significant p-values. We can assume from this that they are all related to birthweight in some way. However, since mother's pre-pregnancy birthweight and pre-pregnancy BMI are most likely highly correlated with eachother, and largely provide the same information, we will choose to move forward with just mother's pre-pregnancy weight. We will fit a final model with mother's pre-pregnancy weight and weight gain during the pregnancy as predictors to see if mother's weight have an influence on 
+
+
+```{r}
+mom_wt = lm(bwt ~ ppwt + wtgain, data = baby_df)
+
+baby_df %>% 
+  modelr::add_residuals(mom_wt) %>% 
+  modelr::add_predictions(mom_wt) %>% 
+  ggplot(aes(x = resid ,y = pred)) +
+  geom_point()
+
+baby_df %>% 
+  modelr::add_residuals(mom_wt) %>% 
+  ggplot(aes(x = resid)) +
+  geom_density()
+```
+Based on the plot of residuals versus predicted values, we can see that the linearity assumption is still valid and there are no concerning outliers or unequal variances. 
+Based on the density plot of the residuals, we can see they are relatively normally distributed and have a center of near 0 residuals. Therefore, we can assume that the model is fit well and our assumptions are valid.
+
+#### Part 3 - Running models asked to examine
+
+Model using length at birth and gestational age as predictors (main effects only)
+```{r}
+lg_ga_model = lm(bwt ~ blength + gaweeks, data = baby_df)
+
+baby_df %>% 
+  modelr::add_residuals(lg_ga_model) %>% 
+  modelr::add_predictions(lg_ga_model) %>% 
+  ggplot(aes(x = resid ,y = pred)) +
+  geom_point()
+
+baby_df %>% 
+  modelr::add_residuals(lg_ga_model) %>% 
+  ggplot(aes(x = resid)) +
+  geom_density()
+```
+The plot of the residuals versus the predicted values show that there is one potential outlier, with a high residual and low predicted value. Otherwise, the scatter plot seems to show assumptions to be met. 
+The density plot shows that the residuals here are also normally distributed and indicate that the assumptions have been met.
+
+Model using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+```{r}
+interaction_3 = lm(bwt ~ bhead + blength + babysex, data = baby_df)
+
+baby_df %>% 
+  modelr::add_residuals(interaction_3) %>% 
+  modelr::add_predictions(interaction_3) %>% 
+  ggplot(aes(x = resid ,y = pred)) +
+  geom_point()
+
+baby_df %>% 
+  modelr::add_residuals(interaction_3) %>% 
+  ggplot(aes(x = resid)) +
+  geom_density()
+```
+The scatter plot of the residuals and predicted values show that there may be some outliers in the data, but overall, the residuals and predicted values are scatter near each other indicating assumptions are met. 
+The density plot shows that the residuals here are also normally distributed and indicate that the assumptions have been met.
+
+#### Part 4 - Compare models with Cross Validation
+
+Use cross validation to compare the 3 models above
+
+```{r}
+cv_df = 
+  crossv_mc(baby_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)
+  )
+```
+
+Fit the 3 models to the training and testing datasets
+
+```{r}
+cv_df = 
+  cv_df %>% 
+  mutate(
+    mom_wt_mod  = map(.x = train, ~lm(bwt ~ ppbmi + ppwt + wtgain, data = .x)),
+    lg_ga_mod = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    inter_mod = map(.x = train, ~lm(bwt ~ bhead + blength + babysex, data = .x))
+  ) %>% 
+  mutate(
+    rmse_mom = map2_dbl(.x = mom_wt_mod, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_lg_ga = map2_dbl(.x = lg_ga_mod, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_inter = map2_dbl(.x = inter_mod, .y = test, ~rmse(model = .x, data = .y))
+  )
+
+```
+
+Plot distribution of root mean squared error for all 3 models to visually compare them. 
+Also calculate the average root mean sqaured error for each model
+```{r}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  ggplot(aes(x = model, y = rmse)) +
+  geom_violin()
+
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  group_by(model) %>% 
+  summarize(avg_rmse = mean(rmse)) %>% 
+  knitr::kable()
+```
+Based on these violin plots and the calculated average root mean squared error, it is clear that the model fitting the interaction between head circumference, length and sex is the best model, with the lowest root mean squared error. The model looking at baby's length was the second best. The model looking at mom's pre-pregnancy weight and weight gained had the highest root mean squared error.
 
 ## Problem 3
 
