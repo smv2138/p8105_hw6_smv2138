@@ -106,11 +106,6 @@ model_results_df %>%
 
 
 ## Problem 2
-compare 3 models using CV
-build a model (open ended)
-start with checking for cross validation
-Porbably want to do some work with factor variables 
-Find some residuals
 
 #### Part 1 - Loading data and cleaning data
 Load and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
@@ -167,9 +162,9 @@ baby_df %>%
   ggplot(aes(x = wtgain, y = bwt)) +
   geom_point()
 ```
-Based on the above graphs, we can see that no mother in this dataset had a previous number of low birth weight babies. Therefore, we will drop this variable from furher analysis. They other 3 variables appear to have a linear relationship with the outcome of birthweight, therefore, we will move forward with analyzing these. 
+Based on the above graphs, we can see that no mother in this dataset had a previous number of low birth weight babies. Therefore, we will drop this variable from further analysis. They other 3 variables appear to have a linear relationship with the outcome of birthweight, therefore, we will move forward with analyzing these. 
 
-Fit the model and show a plot of model residuals against fitted values 
+Fit the individual models
 
 ```{r}
 ## Pre-pregnancy BMI model
@@ -187,7 +182,7 @@ lm(bwt ~ wtgain, data = baby_df) %>%
         broom::tidy() %>% 
   knitr::kable()
 ```
-After fitting all three of these models, we can see that they all have significant p-values. We can assume from this that they are all related to birthweight in some way. However, since mother's pre-pregnancy birthweight and pre-pregnancy BMI are most likely highly correlated with eachother, and largely provide the same information, we will choose to move forward with just mother's pre-pregnancy weight. We will fit a final model with mother's pre-pregnancy weight and weight gain during the pregnancy as predictors to see if mother's weight have an influence on 
+After fitting all three of these models, we can see that they all have significant p-values. We can assume from this that they are all related to birthweight in some way. However, since mother's pre-pregnancy birthweight and pre-pregnancy BMI are most likely highly correlated with each other, and largely provide the same information, we will choose to move forward with just mother's pre-pregnancy weight. We will fit a final model with mother's pre-pregnancy weight and weight gain during the pregnancy as predictors to see if mother's weight have an influence on 
 
 
 ```{r}
@@ -204,7 +199,7 @@ baby_df %>%
   ggplot(aes(x = resid)) +
   geom_density()
 ```
-Based on the plot of residuals versus predicted values, we can see that the linearity assumption is still valid and there are no concerning outliers or unequal variances. 
+Based on the plot of residuals versus predicted values, we can see that the linearity assumption is still valid and there are no concerning outliers or unequal variances. Furthermore, the graph was centered around 0 and appear evenly spread out as well. 
 Based on the density plot of the residuals, we can see they are relatively normally distributed and have a center of near 0 residuals. Therefore, we can assume that the model is fit well and our assumptions are valid.
 
 #### Part 3 - Running models asked to examine
@@ -306,9 +301,6 @@ Based on these violin plots and the calculated average root mean squared error, 
 
 ## Problem 3
 
-use bootstrap to get distribution of parameters you're interested in
-fit linear model of max emp against min temp
-r sq value and another random param ()
 #### Part 1 - Load 2017 Central Park Weather Data
 ```{r}
 weather_df = 
@@ -393,7 +385,7 @@ final_df %>%
     title = "Density plot of log(β^0∗β^1) values across all 5000 bootstrap samples"
   )
 ```
-The three plots above show the distribution of b1 (tmin), r-squared and log(β^0∗β^1) values across all 5000 bootstrap resamples. All three graphs appear to have a normal distribution of values across all samples. 
+The three plots above show the distribution of b1 (tmin), r-squared and log(β^0∗β^1) values across all 5000 bootstrap resamples. The density plot for the r squared was centered around 0.91. The density plot for the log(β^0∗β^1) values was centered around 2.02. These plots appear to be bell shaped however slightly left skewed. 
 
 #### Part 4 - Identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r^2 and log(β^0∗β^1)
 
